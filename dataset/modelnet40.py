@@ -1,4 +1,8 @@
+import glob
+import h5py
+import numpy as np
 import os
+from numpy.lib.index_tricks import AxisConcatenator
 import torch
 import shutil
 import urllib
@@ -49,33 +53,95 @@ class ModelNet(torch.utils.data.Dataset):
         "xbox": 39,
     }
 
-    def __init__(self, root_dir="", transform=[], mode="train", classes=[]):
-        self.root_dir = root_dir
+    def __init__(
+        self,
+        train: bool = True,
+        num_points: int = 1024,
+        download: bool = True,
+        transform=[],
+        use_normals: bool = False,
+    ):
+        super().__init__()
+
+        self.num_points = num_points
         self.transform = transform
-        self._download_data()
+
+        self.base_dir = os.path.dirname(os.path.abspath(__file__))
+        self.data_dir = os.path.join(self.base_dir, os.pardir, "data")
+
+        if download:
+            self._download_data()
+        self.data, self.labels = self._load_data(train, use_normals)
+        if not train:
+            self.shapes = self._read_class_ModelNet40()
+
+    def __getitem__(self, idx: int):
+        current_points = self.data[idx].copy()
+        current_points = torch.from_numpy(current_points[: self.num_points, :]).float()
+        if self.transform is not None:
+            current_points = self.transform(current_points)
+        label = torch.from_numpy(self.labels[idx]).type(torch.LongTensor)
+        return current_points, label
+
+    def __len__(self):
+        return self.data.shape[0]
 
     def _download_data(self):
-        if os.path.exists(self.root_dir):
-            return
+        if not os.path.exists(self.data_dir):
+            print(
+                f"ModelNet40 dataset does not exist in root directory{self.data_dir}.\n"
+            )
+            os.makedirs(self.data_dir)
 
-        print(f"ModelNet40 dataset does not exist in root directory{self.root_dir}.\n")
-        print("Downloading ModelNet40 dataset.")
+        if not os.path.exists(os.path.join(self.data_dir, "modelnet40_ply_hdf5_2048")):
+            print("Downloading ModelNet40 dataset.")
 
-        os.makedirs(self.root_dir)
-        url = "https://shapenet.cs.stanford.edu/media/modelnet40_ply_hdf5_2048.zip"
-        data = urllib.request.urlopen(url)
-        filename = url.rpartition("/")[2][:-5]
-        file_path = os.path.join(self.root_dir, filename)
-        with open(file_path, mode="wb") as f:
-            d = data.read()
-            f.write(d)
+            modelnet40_url = (
+                "https://shapenet.cs.stanford.edu/media/modelnet40_ply_hdf5_2048.zip"
+            )
+            zip_file = os.path.basename(modelnet40_url)
+            os.system(f"wget {modelnet40_url}; unzip {zip_file}")
+            os.system(f"mv {zip_file[:-4]} {self.data_dir}")
+            os.system(f"rm {zip_file}")
 
-        print("Extracting dataset.")
-        with ZipFile(file_path, mode="wb") as zip_f:
-            zip_f.extractall(self.root_dir)
+    def _load_data(self, train: bool, use_normals: bool):
+        if train:
+            partition = "train"
+        else:
+            partition = "test"
+        all_data = []
+        all_labels = []
+        for h5_name in glob.glob(
+            os.path.join(
+                self.data_dir, "modelnet40_ply_hdf5_2048", f"ply_data_{partition}*.h5"
+            )
+        ):
+            f = h5py.File(h5_name)
+            if use_normals:
+                data = np.concatenate([f["data"][:], f["normal"][:]], axis=-1).astype(
+                    "float32"
+                )
+            # if use_normals:data=np.concatenate([f["data"][:],f["normal"][:]],axis=1]).astype("float32")
+            else:
+                data = f["data"][:].astype("float32")
+            label = f["label"][:].astype("int64")
+            f.close()
+            all_data.append(data)
+            all_labels.append(label)
 
-        os.remove(file_path)
-        extracted_dir = os.path.join(self.root_dir, filename[:-5])
-        for d in os.listdir(extracted_dir):
-            shutil.move(src=os.path.join(extracted_dir, d), dst=self.root_dir)
-            shutil.rmtree(extracted_dir)
+        all_data = np.concatenate(all_data, axis=0)
+        all_labels = np.concatenate(all_labels, axis=0)
+        return all_data, all_labels
+
+    def _read_class_ModelNet40(self):
+        file = open(
+            os.path.join(self.data_dir, "modelnet40_ply_hdf5_2048", "shape_names.txt"),
+            "r",
+        )
+        shape_names = file.read()
+        shape_names = np.array(shape_names.split("\n")[:-1])
+        file.close()
+        return shape_names
+
+    def get_shape(self, label):
+        return self.shapes[label]
