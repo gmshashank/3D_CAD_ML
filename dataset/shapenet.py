@@ -9,9 +9,7 @@ from torch.utils.data import Dataset
 
 
 class ShapeNetPart(Dataset):
-    def __init__(
-        self, num_points: int = 1024, partition: str = "train", class_choice=None
-    ):
+    def __init__(self, num_points: int = 1024, partition: str = "train", class_choice=None):
         self.data, self.label, self.seg = self._load_data(partition)
         self.cat_id = {
             "airplane": 0,
@@ -74,9 +72,7 @@ class ShapeNetPart(Dataset):
         if not os.path.exists(os.path.join(data_dir, "shapenet_part_seg_hdf5_data")):
             zip_file = os.path.basename(url)
             os.system(f"wget {url} --no-check-certificate; unzip {zip_file}")
-            os.system(
-                f"mv hdf5_data { os.path.join(data_dir,'shapenet_part_seg_hdf5_data')}"
-            )
+            os.system(f"mv hdf5_data { os.path.join(data_dir,'shapenet_part_seg_hdf5_data')}")
             os.system(f"rm {zip_file}")
 
     def _load_data(self, partition: str):
@@ -88,18 +84,12 @@ class ShapeNetPart(Dataset):
         all_label = []
         all_seg = []
         if partition == "trainval":
-            files = glob.glob(
-                os.path.join(self.data_dir, "shapenet_part_seg_hdf5_data", "*train*.h5")
-            ) + glob.glob(
+            files = glob.glob(os.path.join(self.data_dir, "shapenet_part_seg_hdf5_data", "*train*.h5")) + glob.glob(
                 os.path.join(self.data_dir, "shapenet_part_seg_hdf5_data", "*val*.h5")
             )
 
         else:
-            files = glob.glob(
-                os.path.join(
-                    self.data_dir, "shapenet_part_seg_hdf5_data", "*partition*.h5"
-                )
-            )
+            files = glob.glob(os.path.join(self.data_dir, "shapenet_part_seg_hdf5_data", "*partition*.h5"))
 
         for file_name in files:
             file = h5py.File(file_name, "r+")
@@ -153,10 +143,7 @@ class ShapeNetPart(Dataset):
                 img = cv2.putText(
                     img,
                     label,
-                    (
-                        column_index + int(color_size * 1.15),
-                        row_index + int(color_size / 2),
-                    ),
+                    (column_index + int(color_size * 1.15), row_index + int(color_size / 2),),
                     font,
                     0.76,
                     (0, 0, 0),
@@ -167,9 +154,7 @@ class ShapeNetPart(Dataset):
                 label_index = label_index + 1
                 if color_index >= 50:
                     cv2.imwrite(
-                        "prepare_data/meta/partseg_colors.png",
-                        img,
-                        [cv2.IMWRITE_PNG_COMPRESSION, 0],
+                        "prepare_data/meta/partseg_colors.png", img, [cv2.IMWRITE_PNG_COMPRESSION, 0],
                     )
                     return np.array(colors)
                 elif column + 1 >= column_numbers[row]:

@@ -88,17 +88,13 @@ class ModelNet(torch.utils.data.Dataset):
 
     def _download_data(self):
         if not os.path.exists(self.data_dir):
-            print(
-                f"ModelNet40 dataset does not exist in root directory{self.data_dir}.\n"
-            )
+            print(f"ModelNet40 dataset does not exist in root directory{self.data_dir}.\n")
             os.makedirs(self.data_dir)
 
         if not os.path.exists(os.path.join(self.data_dir, "modelnet40_ply_hdf5_2048")):
             print("Downloading ModelNet40 dataset.")
 
-            modelnet40_url = (
-                "https://shapenet.cs.stanford.edu/media/modelnet40_ply_hdf5_2048.zip"
-            )
+            modelnet40_url = "https://shapenet.cs.stanford.edu/media/modelnet40_ply_hdf5_2048.zip"
             zip_file = os.path.basename(modelnet40_url)
             os.system(f"wget {modelnet40_url}; unzip {zip_file}")
             os.system(f"mv {zip_file[:-4]} {self.data_dir}")
@@ -111,16 +107,10 @@ class ModelNet(torch.utils.data.Dataset):
             partition = "test"
         all_data = []
         all_labels = []
-        for h5_name in glob.glob(
-            os.path.join(
-                self.data_dir, "modelnet40_ply_hdf5_2048", f"ply_data_{partition}*.h5"
-            )
-        ):
+        for h5_name in glob.glob(os.path.join(self.data_dir, "modelnet40_ply_hdf5_2048", f"ply_data_{partition}*.h5")):
             f = h5py.File(h5_name)
             if use_normals:
-                data = np.concatenate([f["data"][:], f["normal"][:]], axis=-1).astype(
-                    "float32"
-                )
+                data = np.concatenate([f["data"][:], f["normal"][:]], axis=-1).astype("float32")
             # if use_normals:data=np.concatenate([f["data"][:],f["normal"][:]],axis=1]).astype("float32")
             else:
                 data = f["data"][:].astype("float32")
@@ -134,10 +124,7 @@ class ModelNet(torch.utils.data.Dataset):
         return all_data, all_labels
 
     def _read_class_ModelNet40(self):
-        file = open(
-            os.path.join(self.data_dir, "modelnet40_ply_hdf5_2048", "shape_names.txt"),
-            "r",
-        )
+        file = open(os.path.join(self.data_dir, "modelnet40_ply_hdf5_2048", "shape_names.txt"), "r",)
         shape_names = file.read()
         shape_names = np.array(shape_names.split("\n")[:-1])
         file.close()
